@@ -1,0 +1,1 @@
+/home/z/my-project/mini-services/hrms-api/node_modules/@embedded-postgres/linux-x64/native/bin/postgres "-D" "/home/z/my-project/db-pg/data"

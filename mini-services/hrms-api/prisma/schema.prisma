@@ -1,0 +1,1486 @@
+// College HRMS — PostgreSQL schema (Prisma)
+// Authored relationally; demo runs on a real PostgreSQL server provisioned in-sandbox.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Institution structure ───────────────────────────
+
+enum InstitutionType {
+  UNIVERSITY
+  DEEMED_UNIVERSITY
+  AFFILIATED_COLLEGE
+  AUTONOMOUS_COLLEGE
+  POLYTECHNIC
+}
+
+model Institution {
+  id             String         @id @default(cuid())
+  code           String         @unique
+  name           String
+  type           InstitutionType @default(UNIVERSITY)
+  establishedYear Int
+  affiliatingBody String? // e.g. UGC, AICTE, state university
+  naacGrade      String?
+  addressLine    String
+  city           String
+  state          String
+  pincode        String
+  phone          String
+  email          String
+  website        String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  campuses       Campus[]
+  faculties      Faculty[]
+  departments    Department[]
+  designations   Designation[]
+  employees      Employee[]
+  leaveTypes     LeaveType[]
+  workflows      ApprovalWorkflow[]
+  appraisalCycles AppraisalCycle[]
+  payrollRuns    PayrollRun[]
+  academicTerms  AcademicTerm[]
+  documentCategories DocumentCategory[]
+  settings       InstitutionSetting[]
+  vacancies      Vacancy[]
+}
+
+model Campus {
+  id             String   @id @default(cuid())
+  institutionId  String
+  code           String   @unique
+  name           String
+  city           String
+  state          String
+  addressLine    String
+  isMain         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  departments    Department[]
+  employees      Employee[]
+  attendanceRecords AttendanceRecord[]
+  vacancies      Vacancy[]
+}
+
+enum FacultyKind {
+  FACULTY
+  SCHOOL
+  CENTRE
+}
+
+model Faculty {
+  id             String      @id @default(cuid())
+  institutionId  String
+  code           String      @unique
+  name           String
+  kind           FacultyKind @default(FACULTY)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  departments    Department[]
+}
+
+model Department {
+  id             String   @id @default(cuid())
+  institutionId  String
+  campusId       String
+  facultyId      String?
+  code           String   @unique
+  name           String
+  establishedYear Int?
+  hodId          String?
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  campus         Campus      @relation(fields: [campusId], references: [id])
+  faculty        Faculty?    @relation(fields: [facultyId], references: [id])
+  hod            Employee?  @relation("DeptHod", fields: [hodId], references: [id])
+  employees      Employee[] @relation("DeptEmployees")
+  subjects       SubjectAllocation[]
+  vacancies      Vacancy[]
+  workloadEntries WorkloadEntry[]
+  userRoles      UserRole[]
+
+  @@index([campusId])
+  @@index([facultyId])
+}
+
+enum DesignationCategory {
+  TEACHING
+  NON_TEACHING
+  TECHNICAL
+}
+
+model Designation {
+  id             String               @id @default(cuid())
+  institutionId  String
+  code           String               @unique
+  title          String
+  category       DesignationCategory
+  payLevel       Int // e.g. 10..14 (7th-PC style, demonstration)
+  minBasic       Int
+  maxBasic       Int
+  careerStep     Int                  @default(3)
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  institution    Institution          @relation(fields: [institutionId], references: [id])
+  employees      Employee[]
+  vacancies      Vacancy[]
+}
+
+// ─────────────────────────── Employees ───────────────────────────
+
+enum StaffType {
+  TEACHING
+  NON_TEACHING
+  TECHNICAL
+}
+
+enum EmployeeStatus {
+  ACTIVE
+  PROBATION
+  ON_NOTICE
+  SEPARATED
+  ON_LONG_LEAVE
+}
+
+enum EmploymentType {
+  PERMANENT
+  CONTRACT
+  VISITING
+  PART_TIME
+  ADJUNCT
+}
+
+enum SeparationType {
+  RESIGNATION
+  RETIREMENT
+  TERMINATION
+  CONTRACT_ENDED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+enum ReservationCategory {
+  GENERAL
+  OBC
+  SC
+  ST
+  EWS
+}
+
+model Employee {
+  id              String   @id @default(cuid())
+  employeeCode    String   @unique
+  institutionId   String
+  campusId        String
+  departmentId    String?
+  designationId   String?
+  staffType       StaffType
+  employmentType  EmploymentType @default(PERMANENT)
+  status          EmployeeStatus @default(ACTIVE)
+
+  title           String   @default("Dr.")
+  firstName       String
+  lastName        String
+  fullName        String
+  gender          Gender
+  dateOfBirth     DateTime
+  bloodGroup      String?
+  maritalStatus   MaritalStatus?
+  reservationCategory ReservationCategory?
+  nationality     String   @default("Indian")
+
+  personalEmail   String
+  officialEmail   String   @unique
+  phone           String
+  alternatePhone  String?
+  addressLine     String
+  city            String
+  state           String
+  pincode         String
+  emergencyContactName String?
+  emergencyContactPhone String?
+
+  joiningDate     DateTime
+  probationEndDate DateTime?
+  confirmationDate DateTime?
+  separationDate  DateTime?
+  separationType  SeparationType?
+  separationRemarks String?
+
+  reportsToId     String?
+  photoSeed       Int      @default(0)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  institution     Institution      @relation(fields: [institutionId], references: [id])
+  campus          Campus           @relation(fields: [campusId], references: [id])
+  department      Department?      @relation("DeptEmployees", fields: [departmentId], references: [id])
+  designation     Designation?     @relation(fields: [designationId], references: [id])
+  reportsTo       Employee?        @relation("ReportsTo", fields: [reportsToId], references: [id])
+  subordinates    Employee[]       @relation("ReportsTo")
+  departmentsHodOf Department[]   @relation("DeptHod")
+
+  user            User?
+  qualifications  Qualification[]
+  experiences     ExperienceEntry[]
+  serviceEvents   ServiceEvent[]
+  attendanceRecords AttendanceRecord[]
+  punchRecords    PunchRecord[]
+  corrections     AttendanceCorrection[]
+  leaveApplications LeaveApplication[]
+  leaveBalances   LeaveBalance[]
+  salaryStructure SalaryStructure?
+  salaryRevisions SalaryRevision[]
+  payslips        Payslip[]
+  subjectAllocations SubjectAllocation[]
+  workloadEntries WorkloadEntry[]
+  researchOutputs ResearchOutput[]
+  mentoringEntries MentoringEntry[]
+  trainingRecords TrainingRecord[]
+  adminDuties     AdministrativeDuty[]
+  goals           Goal[]
+  performanceReviews PerformanceReview[]
+  documents       EmployeeDocument[]
+  @@index([departmentId])
+  @@index([campusId])
+  @@index([staffType])
+  @@index([status])
+  @@index([fullName])
+}
+
+enum QualificationDegree {
+  PHD
+  POST_DOC
+  M_PHIL
+  M_TECH
+  M_SC
+  MBA
+  M_COM
+  MA
+  LLM
+  M_ED
+  M_CA
+  B_TECH
+  B_SC
+  B_COM
+  BA
+  LLB
+  B_ED
+  PG_DIPLOMA
+  DIPLOMA
+  ITI
+  HSC
+  SSC
+}
+
+model Qualification {
+  id             String              @id @default(cuid())
+  employeeId     String
+  degree         QualificationDegree
+  field          String
+  institutionName String
+  university     String
+  yearOfPassing Int
+  percentage     Float?
+  mode           String              @default("Full-time")
+  createdAt      DateTime            @default(now())
+
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+model ExperienceEntry {
+  id             String   @id @default(cuid())
+  employeeId     String
+  organisation   String
+  designationTitle String
+  fromDate       DateTime
+  toDate         DateTime?
+  monthlySalary  Int?
+  reasonLeaving  String?
+  createdAt      DateTime @default(now())
+
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+enum ServiceEventType {
+  JOINING
+  PROBATION_END
+  CONFIRMATION
+  PROMOTION
+  TRANSFER
+  INCREMENT
+  SALARY_REVISION
+  CHARGE_ASSIGNMENT
+  DEPUTATION
+  SEPARATION
+}
+
+model ServiceEvent {
+  id             String          @id @default(cuid())
+  employeeId     String
+  eventType      ServiceEventType
+  effectiveDate  DateTime
+  referenceNo    String?
+  details        String
+  remarks        String?
+  createdAt      DateTime        @default(now())
+
+  employee       Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+// ─────────────────────────── Users, roles, permissions ───────────────────────────
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_ACTIVATION
+}
+
+model User {
+  id             String     @id @default(cuid())
+  email          String     @unique
+  employeeId     String     @unique
+  passwordHash   String
+  status         UserStatus @default(ACTIVE)
+  isDemo         Boolean    @default(false)
+  googleId       String? // OAuth slot (disabled in sandbox demo)
+  lastLoginAt    DateTime?
+  failedAttempts Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  employee       Employee   @relation(fields: [employeeId], references: [id])
+  userRoles      UserRole[]
+  sessions       UserSession[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+  stagesAssigned ApprovalStage[] @relation("StageApproverUser")
+  payrollRuns    PayrollRun[] @relation("PayrollProcessor")
+  documentsUploaded EmployeeDocument[] @relation("DocUploader")
+  documentsVerified EmployeeDocument[] @relation("DocVerifier")
+  goalsSet       Goal[]     @relation("GoalSetter")
+  reviewsGiven   PerformanceReview[] @relation("Reviewer")
+
+  @@index([employeeId])
+}
+
+model Role {
+  id             String   @id @default(cuid())
+  key            String   @unique
+  name           String
+  description    String
+  isSystem       Boolean  @default(false)
+  scope          String   @default("INSTITUTION") // INSTITUTION | DEPARTMENT
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  userRoles      UserRole[]
+  permissions    RolePermission[]
+  stages         ApprovalStage[] @relation("StageApproverRole")
+}
+
+model Permission {
+  id          String @id @default(cuid())
+  key         String @unique // module:action
+  module      String
+  action      String
+  description String
+
+  rolePermissions RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+model UserRole {
+  id           String   @id @default(cuid())
+  userId       String
+  roleId       String
+  departmentId String? // department-scoped instances (e.g. HOD of CSE)
+  assignedAt   DateTime @default(now())
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+
+  @@unique([userId, roleId, departmentId])
+  @@index([roleId])
+}
+
+model UserSession {
+  id          String    @id @default(cuid())
+  userId      String
+  jti         String    @unique
+  deviceLabel String?
+  ip          String?
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  lastSeenAt  DateTime?
+
+  user        User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  actorEmail String
+  action     String
+  module     String
+  entityType String?
+  entityId   String?
+  summary    String
+  detail     Json?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  user       User? @relation(fields: [userId], references: [id])
+
+  @@index([module])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+// ─────────────────────────── Attendance ───────────────────────────
+
+enum AttendanceStatus {
+  PRESENT
+  HALF_DAY
+  ABSENT
+  ON_LEAVE
+  OFFICIAL_DUTY
+  WFH
+  WEEKLY_OFF
+  HOLIDAY
+}
+
+enum AttendanceSource {
+  BIOMETRIC
+  MANUAL
+  SYSTEM
+  IMPORT
+}
+
+model AttendanceRecord {
+  id          String           @id @default(cuid())
+  employeeId  String
+  campusId    String
+  date        DateTime // day, midnight UTC
+  status      AttendanceStatus
+  inTime      DateTime?
+  outTime     DateTime?
+  workedHours Float?
+  isManual    Boolean          @default(false)
+  source      AttendanceSource @default(BIOMETRIC)
+  remarks     String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  campus      Campus   @relation(fields: [campusId], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([date])
+  @@index([campusId, date])
+}
+
+enum PunchDirection {
+  IN
+  OUT
+}
+
+enum PunchSource {
+  BIOMETRIC
+  WEB_PORTAL
+  MANUAL
+}
+
+model PunchRecord {
+  id         String         @id @default(cuid())
+  employeeId String
+  timestamp  DateTime
+  direction  PunchDirection
+  source     PunchSource    @default(BIOMETRIC)
+  deviceId   String?
+  createdAt  DateTime      @default(now())
+
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, timestamp])
+  @@index([timestamp])
+}
+
+enum CorrectionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+}
+
+model AttendanceCorrection {
+  id              String   @id @default(cuid())
+  referenceNo     String   @unique
+  employeeId      String
+  date            DateTime
+  requestedIn     DateTime?
+  requestedOut     DateTime?
+  reason          String
+  status          CorrectionStatus @default(PENDING)
+  appliedAt       DateTime @default(now())
+  decidedAt       DateTime?
+  decisionNote    String?
+  approvalRequestId String?
+
+  employee        Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+}
+
+// ─────────────────────────── Leave ───────────────────────────
+
+enum LeaveAudience {
+  ALL
+  TEACHING_ONLY
+  NON_TEACHING_ONLY
+}
+
+model LeaveType {
+  id                 String       @id @default(cuid())
+  institutionId      String
+  code               String       @unique
+  name               String
+  description        String
+  annualQuota        Int
+  paid               Boolean      @default(true)
+  carryForward      Boolean      @default(false)
+  maxConsecutiveDays Int?
+  requiresAttachment Boolean      @default(false)
+  applicableTo       LeaveAudience @default(ALL)
+  isActive           Boolean      @default(true)
+
+  institution       Institution @relation(fields: [institutionId], references: [id])
+  balances          LeaveBalance[]
+  applications      LeaveApplication[]
+}
+
+model LeaveBalance {
+  id            String   @id @default(cuid())
+  employeeId     String
+  leaveTypeId    String
+  year           Int
+  entitled       Float    @default(0)
+  carriedForward Float    @default(0)
+  usedDays       Float    @default(0)
+  pendingDays    Float    @default(0)
+  updatedAt      DateTime @updatedAt
+
+  employee     Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType  @relation(fields: [leaveTypeId], references: [id])
+
+  @@unique([employeeId, leaveTypeId, year])
+}
+
+enum LeaveApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+  WITHDRAWN
+}
+
+model LeaveApplication {
+  id            String   @id @default(cuid())
+  referenceNo   String   @unique
+  employeeId    String
+  leaveTypeId   String
+  fromDate      DateTime
+  toDate        DateTime
+  days          Float
+  isHalfDayStart Boolean @default(false)
+  isHalfDayEnd  Boolean @default(false)
+  reason        String
+  contactDuringLeave String?
+  attachmentName String?
+  status        LeaveApplicationStatus @default(PENDING)
+  appliedAt     DateTime @default(now())
+  decidedAt     DateTime?
+  decidedById   String?
+  decisionNote  String?
+  approvalRequestId String?
+  balanceYear   Int
+
+  employee     Employee  @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType    LeaveType @relation(fields: [leaveTypeId], references: [id])
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([fromDate, toDate])
+}
+
+// ─────────────────────────── Approval engine ───────────────────────────
+
+enum ApprovalDocType {
+  LEAVE_APPLICATION
+  ATTENDANCE_CORRECTION
+  PAYROLL_RUN
+  VACANCY_REQUISITION
+}
+
+enum ApproverType {
+  ROLE
+  USER
+}
+
+enum StageStrategy {
+  ANY // any resolved approver can clear the stage
+  ALL // every resolved approver must clear the stage
+  QUORUM // minApprovals of resolved approvers
+}
+
+model ApprovalWorkflow {
+  id            String @id @default(cuid())
+  institutionId String
+  name          String
+  docType       ApprovalDocType
+  description   String
+  isActive      Boolean @default(true)
+  isDefault     Boolean @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  stages        ApprovalStage[]
+  requests      ApprovalRequest[]
+
+  @@unique([institutionId, name])
+}
+
+model ApprovalStage {
+  id             String       @id @default(cuid())
+  workflowId     String
+  seq            Int
+  name           String
+  approverType   ApproverType
+  approverRoleId String?
+  approverUserId String?
+  strategy       StageStrategy @default(ANY)
+  minApprovals   Int          @default(1)
+  slaHours       Int?
+  isFinal        Boolean      @default(false)
+
+  workflow       ApprovalWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  approverRole   Role?           @relation("StageApproverRole", fields: [approverRoleId], references: [id])
+  approverUser   User?           @relation("StageApproverUser", fields: [approverUserId], references: [id])
+
+  @@unique([workflowId, seq])
+}
+
+enum ApprovalRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RETURNED
+  CANCELLED
+}
+
+model ApprovalRequest {
+  id          String   @id @default(cuid())
+  referenceNo String   @unique
+  workflowId  String
+  docType     ApprovalDocType
+  docId       String
+  title       String
+  initiatedByUserId String?
+  initiatorName String  @default("")
+  contextDepartmentId String?
+  currentStageSeq Int  @default(1)
+  status      ApprovalRequestStatus @default(PENDING)
+  submittedAt  DateTime @default(now())
+  decidedAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workflow    ApprovalWorkflow @relation(fields: [workflowId], references: [id])
+  actions     ApprovalAction[]
+
+  @@index([status])
+  @@index([docType, docId])
+  @@index([currentStageSeq])
+}
+
+enum ApprovalActionType {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  RETURNED
+  COMMENTED
+  CANCELLED
+  RESUBMITTED
+}
+
+model ApprovalAction {
+  id            String @id @default(cuid())
+  requestId     String
+  stageSeq      Int
+  actorUserId   String?
+  actorName     String
+  actorRoleKey  String?
+  action        ApprovalActionType
+  comment       String?
+  actedAt       DateTime @default(now())
+  nextStageSeq  Int?
+
+  request       ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+}
+
+// ─────────────────────────── Payroll ───────────────────────────
+
+model SalaryStructure {
+  id            String  @id @default(cuid())
+  employeeId    String  @unique
+  effectiveFrom DateTime
+  basicMonthly  Int // INR / month
+  hraPercent    Float   @default(30)
+  daPercent     Float   @default(125)
+  remarks       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  components    SalaryComponent[]
+}
+
+enum SalaryComponentKind {
+  EARNING
+  DEDUCTION
+  EMPLOYER_CONTRIBUTION
+}
+
+enum SalaryCalcType {
+  FIXED
+  PERCENT_OF_BASIC
+}
+
+model SalaryComponent {
+  id           String               @id @default(cuid())
+  structureId  String
+  code         String // BASIC, DA, HRA, CONVY, MEDICAL, SPECIAL, EPF_EE, TDS, PT, GIS...
+  name         String
+  kind         SalaryComponentKind
+  calcType     SalaryCalcType
+  value        Float // percent or fixed INR
+  remarks      String?
+
+  structure    SalaryStructure @relation(fields: [structureId], references: [id], onDelete: Cascade)
+
+  @@unique([structureId, code])
+}
+
+model SalaryRevision {
+  id            String   @id @default(cuid())
+  employeeId    String
+  effectiveFrom DateTime
+  reason        String // Annual Increment, Promotion, New Appointment, Revision
+  oldBasic      Int?
+  newBasic      Int
+  revisionLetterNo String?
+  createdAt     DateTime @default(now())
+
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+enum PayrollRunStatus {
+  DRAFT
+  PENDING_APPROVAL
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+model PayrollRun {
+  id            String           @id @default(cuid())
+  runNo         String           @unique
+  institutionId String
+  periodMonth   Int
+  periodYear    Int
+  status        PayrollRunStatus @default(DRAFT)
+  employeeCount Int              @default(0)
+  totalGross    Int              @default(0)
+  totalDeductions Int            @default(0)
+  totalNet      Int              @default(0)
+  processedByUserId String?
+  processedAt   DateTime?
+  approvedAt    DateTime?
+  remarks       String?
+  approvalRequestId String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  processedBy    User?        @relation("PayrollProcessor", fields: [processedByUserId], references: [id])
+  payslips      Payslip[]
+
+  @@unique([institutionId, periodYear, periodMonth, runNo])
+  @@index([periodYear, periodMonth])
+}
+
+enum PayslipStatus {
+  DRAFT
+  RELEASED
+  ON_HOLD
+  PAID
+}
+
+model Payslip {
+  id             String       @id @default(cuid())
+  payslipNo      String       @unique
+  payrollRunId   String
+  employeeId     String
+  periodMonth    Int
+  periodYear     Int
+  basic          Int
+  grossEarnings  Int
+  totalDeductions Int
+  netPay         Int
+  paidDays       Float
+  lopDays        Float        @default(0)
+  arrearAmount   Int          @default(0)
+  adjustmentNote String?
+  status         PayslipStatus @default(DRAFT)
+  paidOn         DateTime?
+  generatedAt    DateTime     @default(now())
+
+  payrollRun     PayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  employee       Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  lines          PayslipLine[]
+
+  @@unique([payrollRunId, employeeId])
+  @@index([employeeId, periodYear, periodMonth])
+}
+
+enum PayslipLineKind {
+  EARNING
+  DEDUCTION
+}
+
+model PayslipLine {
+  id         String         @id @default(cuid())
+  payslipId  String
+  code       String
+  name       String
+  kind       PayslipLineKind
+  amount     Int
+  calcDetail String?
+
+  payslip    Payslip @relation(fields: [payslipId], references: [id], onDelete: Cascade)
+
+  @@unique([payslipId, code])
+  @@index([payslipId])
+}
+
+// ─────────────────────────── Recruitment ───────────────────────────
+
+enum VacancyStatus {
+  DRAFT
+  PENDING_APPROVAL
+  OPEN
+  ON_HOLD
+  CLOSED
+  CANCELLED
+}
+
+model Vacancy {
+  id             String        @id @default(cuid())
+  requisitionNo  String        @unique
+  institutionId  String
+  departmentId   String?
+  campusId       String
+  designationId  String?
+  title          String
+  employmentType EmploymentType @default(PERMANENT)
+  openings       Int           @default(1)
+  filledCount    Int           @default(0)
+  minQualification String?
+  specialization String?
+  experienceMinYears Float?
+  salaryRangeMin Int?
+  salaryRangeMax Int?
+  description    String
+  justification String?
+  status        VacancyStatus @default(DRAFT)
+  openedAt      DateTime?
+  targetJoinBy  DateTime?
+  closedAt      DateTime?
+  approvalRequestId String?
+  createdByUserId String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  department    Department? @relation(fields: [departmentId], references: [id])
+  campus        Campus      @relation(fields: [campusId], references: [id])
+  designation   Designation? @relation(fields: [designationId], references: [id])
+  applications  Application[]
+
+  @@index([status])
+}
+
+enum CandidateSource {
+  JOB_PORTAL
+  REFERRAL
+  WALK_IN
+  CAMPUS
+  CONSULTANT
+}
+
+model Candidate {
+  id                  String         @id @default(cuid())
+  candidateCode       String         @unique
+  firstName           String
+  lastName            String
+  email               String
+  phone               String
+  city                String
+  state              String
+  highestQualification String
+  specialization      String
+  experienceYears     Float
+  currentEmployer    String?
+  currentCtc         Int?
+  expectedCtc        Int?
+  source             CandidateSource @default(JOB_PORTAL)
+  notes              String?
+  createdAt           DateTime       @default(now())
+
+  applications        Application[]
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  SELECTED
+  OFFERED
+  OFFER_ACCEPTED
+  ONBOARDED
+  REJECTED
+  WITHDRAWN
+  WAITLISTED
+}
+
+model Application {
+  id            String            @id @default(cuid())
+  vacancyId     String
+  candidateId   String
+  appliedAt     DateTime          @default(now())
+  status        ApplicationStatus @default(APPLIED)
+  rating        Int?
+  shortlistNote String?
+  offerCtc      Int?
+  offerSentAt   DateTime?
+  offerDeadline DateTime?
+  joinedOn      DateTime?
+  onboardedEmployeeCode String?
+  rejectReason  String?
+  interviews    Interview[]
+
+  vacancy       Vacancy   @relation(fields: [vacancyId], references: [id], onDelete: Cascade)
+  candidate     Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  @@index([vacancyId])
+  @@index([status])
+}
+
+enum InterviewKind {
+  SCREENING
+  TECHNICAL
+  TEACHING_DEMO
+  HR_ROUND
+  MANAGEMENT
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum Recommendation {
+  STRONG_HIRE
+  HIRE
+  HOLD
+  NO_HIRE
+}
+
+enum InterviewMode {
+  IN_PERSON
+  ONLINE
+  TELEPHONIC
+}
+
+model Interview {
+  id             String          @id @default(cuid())
+  applicationId  String
+  roundNo        Int
+  kind           InterviewKind
+  mode           InterviewMode   @default(IN_PERSON)
+  scheduledAt    DateTime
+  venueOrLink    String
+  durationMin    Int             @default(45)
+  status         InterviewStatus @default(SCHEDULED)
+  panel          Json? // [{ name, roleKey }]
+  overallRating  Int?
+  feedback       String?
+  recommendation Recommendation?
+  decidedAt      DateTime?
+  decidedBy      String?
+
+  application    Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([applicationId])
+  @@index([scheduledAt])
+}
+
+// ─────────────────────────── Workload & academics ───────────────────────────
+
+enum TermKind {
+  ODD_SEM
+  EVEN_SEM
+  SUMMER_TERM
+  NON_SEM
+}
+
+model AcademicTerm {
+  id            String   @id @default(cuid())
+  institutionId String
+  name          String   @unique
+  kind          TermKind
+  startDate     DateTime
+  endDate       DateTime
+  isActive      Boolean  @default(false)
+
+  institution    Institution @relation(fields: [institutionId], references: [id])
+  subjects       SubjectAllocation[]
+  workloadEntries WorkloadEntry[]
+}
+
+model SubjectAllocation {
+  id            String   @id @default(cuid())
+  termId        String
+  departmentId  String
+  employeeId    String?
+  code          String
+  title         String
+  lectureHours  Float    @default(0)
+  tutorialHours Float    @default(0)
+  labHours      Float    @default(0)
+  credits       Float    @default(3)
+  groups        Int      @default(1)
+  academicYear  String
+
+  term          AcademicTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  department    Department   @relation(fields: [departmentId], references: [id])
+  employee      Employee?    @relation(fields: [employeeId], references: [id])
+
+  @@index([termId])
+  @@index([departmentId])
+  @@index([employeeId])
+}
+
+model WorkloadEntry {
+  id                  String   @id @default(cuid())
+  termId              String
+  employeeId          String
+  departmentId        String
+  teachingHours       Float    @default(0)
+  labHours            Float    @default(0)
+  tutorialHours       Float    @default(0)
+  supervisions        Int      @default(0) // project/thesis guides
+  adminPoints         Float    @default(0)
+  researchPoints      Float    @default(0)
+  totalLoadPoints     Float    @default(0)
+  standardHours       Float    @default(16)
+  isOverloaded        Boolean  @default(false)
+  remarks             String?
+  computedAt          DateTime @default(now())
+
+  term                AcademicTerm @relation(fields: [termId], references: [id], onDelete: Cascade)
+  employee            Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  department          Department @relation(fields: [departmentId], references: [id])
+
+  @@unique([termId, employeeId])
+}
+
+enum ResearchOutputType {
+  JOURNAL_ARTICLE
+  CONFERENCE_PAPER
+  BOOK
+  BOOK_CHAPTER
+  PATENT
+  SPONSORED_PROJECT
+  CONSULTANCY
+}
+
+enum ResearchStatus {
+  PUBLISHED
+  IN_PRESS
+  SUBMITTED
+  ONGOING
+  COMPLETED
+}
+
+model ResearchOutput {
+  id          String            @id @default(cuid())
+  employeeId  String
+  outputType  ResearchOutputType
+  title       String
+  venue       String
+  authors     String
+  year        Int
+  indexedIn   String? // SCI, Scopus, WoS, UGC-CARE
+  rating      Float?
+  amountSanctioned Int? // for projects / consultancy
+  durationMonths Int?
+  status      ResearchStatus
+  createdAt   DateTime          @default(now())
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+enum MentoringKind {
+  PHD_SUPERVISION
+  PG_PROJECT_GUIDE
+  UG_PROJECT_GUIDE
+  PERSONAL_MENTOR
+}
+
+model MentoringEntry {
+  id          String       @id @default(cuid())
+  employeeId  String
+  kind        MentoringKind
+  studentOrTopic String
+  count       Int          @default(1)
+  year        Int
+  createdAt   DateTime     @default(now())
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+enum TrainingKind {
+  FDP
+  WORKSHOP
+  SEMINAR
+  MOOC
+  CERTIFICATION
+  ORIENTATION
+  REFRESHER
+}
+
+model TrainingRecord {
+  id            String      @id @default(cuid())
+  employeeId    String
+  programTitle  String
+  organiser     String
+  kind          TrainingKind
+  hours         Int
+  fromDate      DateTime
+  toDate        DateTime
+  outcome       String?
+  createdAt     DateTime    @default(now())
+
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+model AdministrativeDuty {
+  id          String   @id @default(cuid())
+  employeeId  String
+  title       String // e.g. Placement Coordinator, Exam Cell In-charge
+  since       DateTime
+  until       DateTime?
+  pointsPerWeek Float  @default(0)
+  createdAt   DateTime @default(now())
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+// ─────────────────────────── Performance & appraisal ───────────────────────────
+
+enum CycleStatus {
+  PLANNING
+  ACTIVE
+  REVIEW_UNDERWAY
+  COMPLETED
+  ARCHIVED
+}
+
+model AppraisalCycle {
+  id          String     @id @default(cuid())
+  institutionId String
+  name        String     @unique
+  periodFrom  DateTime
+  periodTo    DateTime
+  status      CycleStatus @default(PLANNING)
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+  goals       Goal[]
+  reviews     PerformanceReview[]
+}
+
+enum GoalCategory {
+  TEACHING
+  RESEARCH
+  ADMIN
+  DEVELOPMENT
+  MENTORING
+  OTHER
+}
+
+enum GoalStatus {
+  DRAFT
+  AGREED
+  IN_PROGRESS
+  COMPLETED
+  PARTIALLY_MET
+  NOT_MET
+}
+
+model Goal {
+  id                String       @id @default(cuid())
+  cycleId           String
+  employeeId        String
+  title             String
+  description       String
+  category          GoalCategory
+  weightPercent     Int          @default(10)
+  setByUserId       String?
+  agreedWithEmployee Boolean     @default(false)
+  status            GoalStatus   @default(DRAFT)
+  completionPercent Int          @default(0)
+  evidenceNote      String?
+  createdAt         DateTime     @default(now())
+
+  cycle             AppraisalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  employee          Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  setByUser         User?         @relation("GoalSetter", fields: [setByUserId], references: [id])
+
+  @@index([cycleId])
+  @@index([employeeId])
+}
+
+enum ReviewStatus {
+  PENDING
+  SELF_SUBMITTED
+  UNDER_REVIEW
+  COMPLETED
+}
+
+enum AppraisalGrade {
+  OUTSTANDING
+  VERY_GOOD
+  GOOD
+  SATISFACTORY
+  NEEDS_IMPROVEMENT
+}
+
+enum AppraisalRecommendation {
+  NONE
+  PROMOTION
+  SALARY_REVISION
+  TRAINING
+}
+
+model PerformanceReview {
+  id                  String   @id @default(cuid())
+  cycleId              String
+  employeeId           String
+  reviewerUserId       String?
+  selfAssessmentScore  Float?
+  selfComments         String?
+  reviewerScore        Float?
+  reviewerComments     String?
+  finalScore           Float?
+  apiScore             Float? // Academic Performance Indicator (faculty)
+  pbasScore            Float? // PBAS demonstration score
+  grade                AppraisalGrade?
+  strengths            String?
+  improvements         String?
+  recommendation       AppraisalRecommendation @default(NONE)
+  status               ReviewStatus @default(PENDING)
+  submittedAt          DateTime?
+  completedAt          DateTime?
+
+  cycle                AppraisalCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  employee             Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewerUser         User?          @relation("Reviewer", fields: [reviewerUserId], references: [id])
+
+  @@unique([cycleId, employeeId])
+  @@index([employeeId])
+  @@index([reviewerUserId])
+}
+
+// ─────────────────────────── Documents ───────────────────────────
+
+enum DocumentSensitivity {
+  PUBLIC
+  INTERNAL
+  CONFIDENTIAL
+}
+
+model DocumentCategory {
+  id            String   @id @default(cuid())
+  institutionId String
+  key           String   @unique
+  name          String
+  requiresExpiry Boolean @default(false)
+  sensitivity   DocumentSensitivity @default(INTERNAL)
+  description   String
+
+  institution   Institution @relation(fields: [institutionId], references: [id])
+  documents     EmployeeDocument[]
+}
+
+model EmployeeDocument {
+  id            String   @id @default(cuid())
+  employeeId    String
+  categoryId    String
+  title         String
+  fileName      String
+  fileExt       String   @default("pdf")
+  sizeKb        Int      @default(120)
+  version       Int      @default(1)
+  issuedBy      String?
+  issuedOn      DateTime?
+  expiresOn     DateTime?
+  isVerified    Boolean  @default(false)
+  verifiedByUserId String?
+  uploadedByUserId String?
+  uploadedAt    DateTime @default(now())
+  accessLevel   DocumentSensitivity @default(INTERNAL)
+  contentHash   String
+
+  employee       Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  category       DocumentCategory  @relation(fields: [categoryId], references: [id])
+  verifiedByUser User?            @relation("DocVerifier", fields: [verifiedByUserId], references: [id])
+  uploadedByUser User?            @relation("DocUploader", fields: [uploadedByUserId], references: [id])
+
+  @@index([employeeId])
+  @@index([expiresOn])
+  @@index([accessLevel])
+}
+
+// ─────────────────────────── Notifications & settings ───────────────────────────
+
+enum NotificationKind {
+  LEAVE_APPLIED
+  LEAVE_DECISION
+  APPROVAL_PENDING
+  APPROVAL_DECISION
+  PAYROLL_COMPLETED
+  PAYSLIP_READY
+  DOCUMENT_EXPIRY
+  ATTENDANCE_ANOMALY
+  RECRUITMENT_UPDATE
+  APPRAISAL_UPDATE
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+enum Severity {
+  INFO
+  SUCCESS
+  WARNING
+  CRITICAL
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  kind      NotificationKind
+  title     String
+  body      String
+  link      String? // hash route, e.g. #/leave
+  severity  Severity         @default(INFO)
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+model InstitutionSetting {
+  id        String   @id @default(cuid())
+  institutionId String
+  key       String
+  value     Json
+  category  String   @default("GENERAL")
+  updatedByUserId String?
+  updatedAt DateTime @updatedAt
+
+  institution Institution @relation(fields: [institutionId], references: [id])
+
+  @@unique([institutionId, key])
+}

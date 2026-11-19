@@ -1,0 +1,46 @@
+{
+  "name": "hrms-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "College HRMS NestJS backend (PostgreSQL + Prisma)",
+  "scripts": {
+    "dev": "bash scripts/dev.sh",
+    "build": "nest build",
+    "start:prod": "bash scripts/dev.sh --prod",
+    "db:push": "bash scripts/db-push.sh",
+    "db:seed": "bash scripts/db-seed.sh",
+    "db:reset": "bash scripts/db-push.sh --force-reset && bash scripts/db-seed.sh",
+    "db:studio": "prisma studio",
+    "ensure:pg": "node scripts/ensure-pg.mjs"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/jwt": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@prisma/client": "^6.11.1",
+    "bcryptjs": "^2.4.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "cookie-parser": "^1.4.7",
+    "embedded-postgres": "^17.5.0-beta.5",
+    "@embedded-postgres/linux-x64": "^17.5.0-beta.5",
+    "pg": "^8.13.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.8",
+    "@types/express": "^5.0.0",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.11.10",
+    "@faker-js/faker": "^9.0.0",
+    "prisma": "^6.11.1",
+    "typescript": "^5.7.0"
+  },
+  "trustedDependencies": [
+    "@embedded-postgres/linux-x64"
+  ]
+}
