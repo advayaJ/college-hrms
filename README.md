@@ -127,6 +127,37 @@ mini-service automatically alongside the Next.js dev server, and
 `ensure-pg.mjs` boots PostgreSQL 17 with its data directory inside the project
 (`db-pg/`), so the full stack comes up together.
 
+### After a sandbox recycle (processes are stopped, files persist)
+
+The stack now self-heals on the next boot, but if you ever need to bring a
+service back by hand, remember: a plain `nohup cmd &` from a tool shell is
+reaped when the command ends — only instantly-orphaned (double-fork +
+`setsid`) processes survive. Use the provided launcher:
+
+```bash
+# backend (PostgreSQL + NestJS API on :3001) — double-fork detached
+( setsid bash -c 'cd /home/z/my-project/mini-services/hrms-api && exec bun run dev' \
+    >> /home/z/my-project/nest-dev.log 2>&1 < /dev/null & )
+
+# frontend (Next.js dev on :3000) — only if it is down
+( setsid bash -c 'cd /home/z/my-project && exec bun run dev' \
+    >> /home/z/my-project/dev.log 2>&1 < /dev/null & )
+```
+
+Self-healing already built into the boot chain:
+
+- `ensure-pg.mjs` re-chmods the data dir to `0700` and recreates PostgreSQL's
+  empty runtime directories (`pg_notify`, `pg_tblspc`, …) — the sandbox file
+  sync drops empty directories, which otherwise blocks `pg_ctl` startup.
+- `mini-services/hrms-api/scripts/dev.sh` regenerates the Prisma client
+  whenever `bun install` has wiped it.
+- Verify recovery: `curl 'http://localhost:81/api/v1/health?XTransformPort=3001'`
+  must answer `{"ok":true, ... "database":"up"}`.
+
+The box has 4 GB RAM; Next dev + Nest watch + Postgres sit near the ceiling,
+so a large recompile can trigger the OOM killer (usually the Next server). If
+the frontend dies, restart it with the command above — the API is unaffected.
+
 ### Production notes
 
 - Payroll uses demonstration slabs (DA/HRA/EPF/TDS/PT) — **verify statutory

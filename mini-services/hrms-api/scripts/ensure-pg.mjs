@@ -6,7 +6,7 @@
  * Safe to run concurrently: exits quietly when the port is already serving.
  */
 import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { chmodSync, existsSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import net from 'node:net'
 
@@ -49,6 +49,24 @@ async function main() {
         return 1
       }
       log('initdb completed')
+    }
+    // Sandbox recycles can relax the data dir to 0755, which postgres rejects
+    // ("data directory has invalid permissions"). Tighten it before every start.
+    try { chmodSync(DATA_DIR, 0o700) } catch {}
+    // Recycles also drop EMPTY directories (file sync keeps files only); postgres
+    // refuses to start when its empty runtime dirs are gone. Recreate them.
+    const EMPTY_STATE_DIRS = [
+      'pg_commit_ts', 'pg_dynshmem', 'pg_notify', 'pg_replslot', 'pg_serial',
+      'pg_snapshots', 'pg_stat', 'pg_stat_temp', 'pg_twophase', 'pg_tblspc',
+      'pg_wal/archive_status', 'pg_wal/summaries',
+      'pg_logical/snapshots', 'pg_logical/mappings',
+      'pg_multixact/members', 'pg_multixact/offsets',
+    ]
+    for (const d of EMPTY_STATE_DIRS) {
+      const dir = path.join(DATA_DIR, d)
+      if (!existsSync(dir)) {
+        try { mkdirSync(dir, { recursive: true, mode: 0o700 }) ; log(`recreated empty state dir ${d}`) } catch {}
+      }
     }
     log(`starting postgres (log: ${LOG_FILE})`)
     const res = run('pg_ctl', ['-D', DATA_DIR, '-l', LOG_FILE, '-w', '-t', '60', 'start'])
