@@ -71,7 +71,16 @@ async function main() {
     log(`starting postgres (log: ${LOG_FILE})`)
     const res = run('pg_ctl', ['-D', DATA_DIR, '-l', LOG_FILE, '-w', '-t', '60', 'start'])
     if (res.status !== 0) {
-      if (await portOpen(PORT)) log('server is up despite pg_ctl exit code')
+      // Concurrent boot hooks (Next.js instrumentation runs this same script)
+      // can win the pg_ctl race while the port is not accepting yet: pg_ctl
+      // bails with "another server might be running" long before the winner's
+      // postmaster opens the port. Wait for the winner instead of failing.
+      let up = false
+      for (let i = 0; i < 40 && !up; i++) {
+        await new Promise((r) => setTimeout(r, 500))
+        up = await portOpen(PORT)
+      }
+      if (up) log('server is up despite pg_ctl exit code (concurrent start won the race)')
       else {
         log(`pg_ctl failed: ${(res.stderr || res.stdout || '').toString().slice(-400)}`)
         return 1
