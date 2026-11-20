@@ -177,3 +177,4 @@ OOM-killed on this 4 GB box, taking the preview down.
   versioned migrations instead of `db push`.
 - The simulated document vault streams audit-logged attestations; wire it to
   encrypted object storage for real files.
+# college-hrms
