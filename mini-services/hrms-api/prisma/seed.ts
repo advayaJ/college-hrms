@@ -39,8 +39,8 @@ const TABLES = [
 ]
 async function wipe() {
   for (const t of TABLES) {
-    // @ts-expect-error dynamic table
-    await prisma[t].deleteMany({})
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (prisma as unknown as Record<string, { deleteMany: (args: { where?: never }) => Promise<{ count: number }> }>)[t].deleteMany({})
   }
 }
 
@@ -374,12 +374,12 @@ async function seedEmployees(ctx: Awaited<ReturnType<typeof seedStructure>>) {
         reservationCategory: Math.random() < 0.5 ? 'GENERAL' : pick(['OBC', 'SC', 'ST', 'EWS', 'GENERAL'] as const),
         personalEmail: faker.internet.email({ firstName: e.firstName, lastName: e.lastName }).toLowerCase(),
         officialEmail: e.officialEmail,
-        phone: faker.phone.number('+91-9#########'),
+        phone: faker.phone.number({ style: 'human' }),
         addressLine: `${faker.number.int({ min: 1, max: 400 })}, ${pick(['Shastri Colony', 'Vidya Nagar', 'Ambamata Scheme', 'Sector 4', 'Madhav Nagar', 'Ashok Nagar'])}`,
         city, state: 'Rajasthan',
         pincode: pick(['313001', '313002', '313003', '302001', '342001']),
         emergencyContactName: `${pick(['Shri', 'Smt'])} ${faker.person.lastName()}`,
-        emergencyContactPhone: faker.phone.number('+91-9#########'),
+        emergencyContactPhone: faker.phone.number({ style: 'human' }),
         joiningDate: e.joining,
         probationEndDate: e.employmentType === 'PERMANENT' ? addDays(e.joining, 365) : null,
         confirmationDate: e.employmentType === 'PERMANENT' && e.joining.getTime() < addDays(NOW, -400).getTime() ? addDays(e.joining, 365) : null,
@@ -735,7 +735,7 @@ async function seedApprovalTrails(approvalTrail: { appId: string; status: string
         status: t.status as never,
         submittedAt: addDays(NOW, -rint(1, 30)),
         decidedAt: t.status === 'APPROVED' || t.status === 'REJECTED' ? addDays(NOW, -rint(0, 5)) : null,
-        actions: { create: acts },
+        actions: { create: acts as never },
       },
     })
     await prisma.leaveApplication.update({ where: { id: t.appId }, data: { approvalRequestId: req.id } })
@@ -743,11 +743,11 @@ async function seedApprovalTrails(approvalTrail: { appId: string; status: string
 }
 
 // ───────────────────────────────────────────────────────── attendance
-async function seedAttendance(emps: EmpSeed[], idByCode: Record<string, string>, approvedLeave: { employeeId: string; from: Date; to: Date }[]) {
+async function seedAttendance(emps: EmpSeed[], idByCode: Record<string, string>, approvedLeave: { employeeId: string; fromDate: Date; toDate: Date }[]) {
   const leaveMap = new Map<string, Set<string>>()
   for (const l of approvedLeave) {
     if (!leaveMap.has(l.employeeId)) leaveMap.set(l.employeeId, new Set())
-    for (let d = new Date(l.from); d <= l.to; d = addDays(d, 1)) {
+    for (let d = new Date(l.fromDate); d <= l.toDate; d = addDays(d, 1)) {
       leaveMap.get(l.employeeId)!.add(isoDate(d))
     }
   }
@@ -1053,7 +1053,7 @@ async function seedRecruitment(ctx: Awaited<ReturnType<typeof seedStructure>>, h
           candidateCode: code,
           firstName, lastName,
           email: faker.internet.email({ firstName, lastName }).toLowerCase(),
-          phone: faker.phone.number('+91-9#########'),
+          phone: faker.phone.number({ style: 'human' }),
           city: pick(indianCities),
           state: 'Rajasthan',
           highestQualification: pick(['PhD', 'M.Tech', 'M.Sc', 'MCA', 'MBA', 'M.Com', 'M.Ed']),
@@ -1478,7 +1478,7 @@ async function seedNotificationsAuditSettings(emps: EmpSeed[], expiringDocs: { e
   }
 
   // audit log
-  const audit: { userId: string | null; actorEmail: string; action: string; module: string; entityType: string; entityId: string | null; summary: string; createdAt: Date }[] = []
+  const audit: { userId: string | null; actorEmail: string; action: string; module: string; entityType: string | null; entityId: string | null; summary: string; createdAt: Date }[] = []
   const sample = emps.filter(() => Math.random() < 0.5)
   for (const e of sample) {
     const u = await prisma.user.findUnique({ where: { email: e.officialEmail } })

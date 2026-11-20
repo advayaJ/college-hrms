@@ -400,26 +400,26 @@ function EmployeeProfileView({ code }: { code: string }) {
                 ["Joined", fmtDate(e.joiningDate as string)],
                 ["Probation ends", e.probationEndDate ? fmtDate(e.probationEndDate as string) : "—"],
                 ["Confirmed on", e.confirmationDate ? fmtDate(e.confirmationDate as string) : "—"],
-                ...(e.separationDate ? [["Separated", `${fmtDate(e.separationDate as string)} (${titleCase(String(e.separationType))})`]] : []),
+                ...(e.separationDate ? ([["Separated", `${fmtDate(e.separationDate as string)} (${titleCase(String(e.separationType))})`]] as [string, string][]) : []),
               ]} />
             </SectionCard>
             <SectionCard title={canSeeSensitive ? "Personal information" : "Contact (limited)"} description={canSeeSensitive ? undefined : "Full details require institution/department scope"}>
               <InfoRows items={[
                 ...(canSeeSensitive
-                  ? [
+                  ? ([
                       ["Date of birth", fmtDate(e.dateOfBirth as string)],
                       ["Blood group", String(e.bloodGroup ?? "—")],
                       ["Marital status", e.maritalStatus ? titleCase(String(e.maritalStatus)) : "—"],
                       ["Personal email", String(e.personalEmail ?? "—")],
-                    ]
+                    ] as [string, string][])
                   : []),
                 ["Official email", String(e.officialEmail ?? "—")],
                 ["Phone", canSeeSensitive ? String(e.phone ?? "—") : "restricted"],
                 ...(canSeeSensitive
-                  ? [
+                  ? ([
                       ["Address", `${String(e.addressLine ?? "—")}, ${String(e.city ?? "")} ${String(e.pincode ?? "")}`],
                       ["Emergency contact", e.emergencyContactName ? `${String(e.emergencyContactName)} · ${String(e.emergencyContactPhone ?? "")}` : "—"],
-                    ]
+                    ] as [string, string][])
                   : []),
               ]} />
             </SectionCard>

@@ -242,9 +242,9 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
           </ChartFrame>
         </div>
         <SectionCard title="System activity" description="Live events across the platform">
-          {(data.systemActivity as { action: string; module: string; summary: string; createdAt: string; actor: string }[] | undefined)?.length ? (
+          {(() => { const sys = (data.systemActivity ?? []) as { action: string; module: string; summary: string; createdAt: string; actor: string }[]; return sys.length ? (
             <ul className="space-y-2">
-              {(data.systemActivity ?? []).slice(0, 8).map((a, i) => (
+              {sys.slice(0, 8).map((a, i) => (
                 <li key={i} className="glass flex items-center gap-3 rounded-xl px-3 py-2 text-[12.5px]">
                   <ShieldCheck className="size-3.5 shrink-0 text-[color:var(--chart-1)]" />
                   <span className="flex-1 truncate">{a.summary}</span>
@@ -254,7 +254,7 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
             </ul>
           ) : (
             <EmptyState title="No system activity" />
-          )}
+          ) })()}
         </SectionCard>
       </React.Fragment>
     )

@@ -139,7 +139,7 @@ reaped when the command ends — only instantly-orphaned (double-fork +
 ( setsid bash -c 'cd /home/z/my-project/mini-services/hrms-api && exec bun run dev' \
     >> /home/z/my-project/nest-dev.log 2>&1 < /dev/null & )
 
-# frontend (Next.js dev on :3000) — only if it is down
+# frontend (:3000) — `bun run dev` prefers the built production bundle
 ( setsid bash -c 'cd /home/z/my-project && exec bun run dev' \
     >> /home/z/my-project/dev.log 2>&1 < /dev/null & )
 ```
@@ -154,9 +154,19 @@ Self-healing already built into the boot chain:
 - Verify recovery: `curl 'http://localhost:81/api/v1/health?XTransformPort=3001'`
   must answer `{"ok":true, ... "database":"up"}`.
 
-The box has 4 GB RAM; Next dev + Nest watch + Postgres sit near the ceiling,
-so a large recompile can trigger the OOM killer (usually the Next server). If
-the frontend dies, restart it with the command above — the API is unaffected.
+### Frontend serving model (memory)
+
+`bun run dev` runs `scripts/serve.sh`, which serves the prebuilt standalone
+production bundle when `.next/standalone/server.js` exists (~100 MB RSS) and
+falls back to `next dev` (with a JS heap cap) otherwise. Rationale: Turbopack
+dev repeatedly ballooned past 1.9 GB of *native* (non-heap) memory and was
+OOM-killed on this 4 GB box, taking the preview down.
+
+- After changing frontend code: `bun run build` (refreshes the bundle), then
+  restart the frontend with the launcher above.
+- For hot-reload editing: delete `.next/standalone` (or run
+  `bunx next dev -p 3000` directly) and restore the bundle with a rebuild
+  afterwards.
 
 ### Production notes
 
