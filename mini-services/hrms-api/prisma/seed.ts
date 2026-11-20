@@ -1521,8 +1521,14 @@ async function seedNotificationsAuditSettings(emps: EmpSeed[], expiringDocs: { e
 }
 
 // ───────────────────────────────────────────────────────── separations
-async function seedSeparations(emps: EmpSeed[], idByCode: Record<string, string>) {
-  const victims = emps.filter((e) => e.employmentType === 'PERMANENT' && e.joining.getTime() < addDays(NOW, -365 * 3).getTime()).filter(() => Math.random() < 0.03)
+async function seedSeparations(emps: EmpSeed[], idByCode: Record<string, string>, protectedCodes: Set<string>) {
+  // Never separate demo accounts or employees holding key roles (HODs,
+  // admin leads, principal) — their logins must keep working and their
+  // departments must keep their HOD link intact.
+  const victims = emps
+    .filter((e) => !e.isDemo && !protectedCodes.has(e.code))
+    .filter((e) => e.employmentType === 'PERMANENT' && e.joining.getTime() < addDays(NOW, -365 * 3).getTime())
+    .filter(() => Math.random() < 0.03)
   for (const e of victims.slice(0, 10)) {
     const empId = idByCode[e.code]
     const sepDate = addDays(NOW, -rint(10, 200))
@@ -1590,7 +1596,7 @@ async function main() {
   const { expiringDocs } = await seedDocuments(emps, idByCode)
 
   console.log(' separations…')
-  await seedSeparations(emps, idByCode)
+  await seedSeparations(emps, idByCode, new Set([...Object.values(hodCode).map((h) => h.code), ...Object.values(hodAdminCode).map((h) => h.code)]))
 
   console.log(' notifications, audit, settings…')
   await seedNotificationsAuditSettings(emps, expiringDocs, hrEmails, principalEmail)

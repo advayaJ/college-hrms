@@ -27,6 +27,8 @@ export interface SessionView {
   campuses: { id: string; name: string; code: string; isMain: boolean }[]
   roles: SessionRole[]
   activeRoleKey: string
+  /** department of the active role assignment (distinguishes duplicate keys) */
+  activeDepartmentId?: string | null
   permissions: string[]
 }
 
@@ -39,7 +41,7 @@ interface SessionState {
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
   refresh: () => Promise<void>
-  switchRole: (roleKey: string) => Promise<void>
+  switchRole: (roleKey: string, departmentId?: string | null) => Promise<SessionView>
   clearError: () => void
 }
 
@@ -83,9 +85,10 @@ export const useSession = create<SessionState>((set, get) => ({
       set({ session: null })
     }
   },
-  switchRole: async (roleKey: string) => {
-    const data = await api.post<SessionView>("/auth/switch-role", { roleKey })
+  switchRole: async (roleKey, departmentId) => {
+    const data = await api.post<SessionView>("/auth/switch-role", { roleKey, departmentId: departmentId ?? undefined })
     set({ session: data })
+    return data
   },
   clearError: () => set({ error: null }),
 }))

@@ -42,7 +42,7 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const { token: newToken, view } = await this.auth.switchRole(user.userId, dto.roleKey, this.rawToken(req))
+    const { token: newToken, view } = await this.auth.switchRole(user.userId, dto.roleKey, this.rawToken(req), dto.departmentId ?? null)
     res.cookie(AUTH_COOKIE, newToken, this.auth.cookieOptions())
     return ok(view)
   }

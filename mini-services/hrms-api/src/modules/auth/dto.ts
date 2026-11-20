@@ -13,6 +13,12 @@ export class LoginDto {
 export class SwitchRoleDto {
   @IsString()
   roleKey!: string
+
+  /** Optional disambiguator: a user may hold the same role key in two
+   *  departments (e.g. Non-Teaching Staff in two sections). */
+  @IsOptional()
+  @IsString()
+  departmentId?: string
 }
 
 export class ChangePasswordDto {

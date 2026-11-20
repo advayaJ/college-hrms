@@ -224,6 +224,12 @@ export class DashboardService {
       ],
       charts: {
         workloadTop: workload.slice(0, 8).map((w) => ({ name: w.employee.fullName.split(' ').slice(0, 2).join(' '), hours: Math.round((w.teachingHours + w.labHours) * 10) / 10 })),
+        // Always present (attendance is recorded for every employee) — guarantees
+        // the HOD dashboard has a pictorial even for non-teaching departments
+        // where workloadTop is empty.
+        attendanceMix: attendance
+          .map((a) => ({ name: a.status, value: a._count._all }))
+          .sort((a, b) => b.value - a.value),
       },
       team: (await this.prisma.employee.findMany({
         where: { departmentId: { in: deptIds }, status: { not: 'SEPARATED' } },

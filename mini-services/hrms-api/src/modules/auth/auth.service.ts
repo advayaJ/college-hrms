@@ -23,6 +23,8 @@ export interface SessionView {
   campuses: { id: string; name: string; code: string; isMain: boolean }[]
   roles: { key: string; name: string; departmentId: string | null; departmentName: string | null }[]
   activeRoleKey: string
+  /** department of the active role assignment — distinguishes duplicate keys */
+  activeDepartmentId?: string | null
   permissions: string[]
 }
 
@@ -127,22 +129,38 @@ export class AuthService {
         type: user.employee.institution.type,
       },
       campuses: user.employee.institution.campuses.map((c) => ({ id: c.id, name: c.name, code: c.code, isMain: c.isMain })),
-      roles: user.userRoles.map((ur) => ({
-        key: ur.role.key,
-        name: ur.role.name,
-        departmentId: ur.departmentId,
-        departmentName: ur.department?.name ?? null,
-      })),
+      roles: user.userRoles
+        // A user can hold the same (role, department) twice (seed artifact) —
+        // identical assignments are indistinguishable, collapse them.
+        .filter(
+          (ur, i, all) =>
+            all.findIndex((o) => o.role.key === ur.role.key && o.departmentId === ur.departmentId) === i
+        )
+        .map((ur) => ({
+          key: ur.role.key,
+          name: ur.role.name,
+          departmentId: ur.departmentId,
+          departmentName: ur.department?.name ?? null,
+        })),
       activeRoleKey,
+      // department of the ACTIVE role assignment — distinguishes duplicate keys
+      activeDepartmentId: payload?.dep ?? null,
       permissions,
     }
   }
 
-  async switchRole(userId: string, roleKey: string, currentTokenRaw?: string) {
+  async switchRole(userId: string, roleKey: string, currentTokenRaw?: string, departmentId?: string | null) {
     const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { userRoles: { include: { role: true } } } })
     if (!user) throw new UnauthorizedError()
-    const target = user.userRoles.find((ur) => ur.role.key === roleKey)
-    if (!target) throw new BadRequestError(`You do not hold the role ${roleKey}`)
+    // A user can hold the SAME role key in two departments (e.g. Non-Teaching
+    // Staff in two sections). Match role+department when departmentId is given.
+    const target = user.userRoles.find(
+      (ur) => ur.role.key === roleKey && (departmentId ? ur.departmentId === departmentId : true)
+    )
+    if (!target) {
+      const held = user.userRoles.some((ur) => ur.role.key === roleKey)
+      throw new BadRequestError(held ? `Role ${roleKey} is not assigned to that department` : `You do not hold the role ${roleKey}`)
+    }
     const emp = await this.prisma.employee.findUnique({
       where: { id: user.employeeId },
       include: { designation: true },

@@ -220,25 +220,33 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
       <React.Fragment>
         <div className="grid gap-5 md:grid-cols-2">
           <ChartFrame title="Workforce mix" description="Teaching · non-teaching · technical">
-            <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
-                <Pie data={staffType} dataKey="value" nameKey="name" innerRadius={52} outerRadius={82} paddingAngle={3} strokeWidth={0} label={{ fontSize: 11 }}>
-                  {staffType.map((_, i) => <Cell key={i} fill={CH[i % CH.length]} />)}
-                </Pie>
-                <Tooltip {...tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
+            {staffType.length === 0 ? (
+              <EmptyState title="No workforce data" className="h-[220px]" />
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie data={staffType} dataKey="value" nameKey="name" innerRadius={52} outerRadius={82} paddingAngle={3} strokeWidth={0} label={{ fontSize: 11 }}>
+                    {staffType.map((_, i) => <Cell key={i} fill={CH[i % CH.length]} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </ChartFrame>
           <ChartFrame title="Joinings by month" description="Last 12 months">
-            <ResponsiveContainer width="100%" height={220}>
-              <BarChart data={joinings}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-                <XAxis dataKey="month" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-                <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={26} />
-                <Tooltip {...tooltipStyle} />
-                <Bar dataKey="value" name="Joined" radius={[6, 6, 0, 0]} fill="var(--chart-1)" />
-              </BarChart>
-            </ResponsiveContainer>
+            {joinings.length === 0 ? (
+              <EmptyState title="No joinings recorded" className="h-[220px]" />
+            ) : (
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={joinings}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={26} />
+                  <Tooltip {...tooltipStyle} />
+                  <Bar dataKey="value" name="Joined" radius={[6, 6, 0, 0]} fill="var(--chart-1)" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
           </ChartFrame>
         </div>
         <SectionCard title="System activity" description="Live events across the platform">
@@ -268,15 +276,19 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
       <React.Fragment>
         <div className="grid gap-5 md:grid-cols-2">
           <ChartFrame title="Staff composition" description="Institution-wide">
-            <ResponsiveContainer width="100%" height={210}>
-              <PieChart>
-                <Pie data={staffMix} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3} strokeWidth={0}>
-                  {staffMix.map((_, i) => <Cell key={i} fill={CH[i % CH.length]} />)}
-                </Pie>
-                <Tooltip {...tooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
+            {staffMix.length === 0 ? (
+              <EmptyState title="No staff composition data" className="h-[210px]" />
+            ) : (
+              <ResponsiveContainer width="100%" height={210}>
+                <PieChart>
+                  <Pie data={staffMix} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3} strokeWidth={0}>
+                    {staffMix.map((_, i) => <Cell key={i} fill={CH[i % CH.length]} />)}
+                  </Pie>
+                  <Tooltip {...tooltipStyle} />
+                  <Legend wrapperStyle={{ fontSize: 11 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </ChartFrame>
           <SectionCard title="Department snapshot" description="Strength & leadership">
             <ul className="space-y-1.5">
@@ -321,7 +333,10 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
     return (
       <React.Fragment>
         <ChartFrame title="Attendance trend — 14 days" description="Present · absent · on-leave">
-          <ResponsiveContainer width="100%" height={230}>
+          {trend.length === 0 ? (
+            <EmptyState title="No attendance recorded yet" className="h-[230px]" />
+          ) : (
+            <ResponsiveContainer width="100%" height={230}>
             <AreaChart data={trend}>
               <defs>
                 <linearGradient id="gPresent" x1="0" y1="0" x2="0" y2="1">
@@ -342,6 +357,7 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
               <Area type="monotone" dataKey="leave" name="On leave" stroke="var(--chart-2)" strokeWidth={1.5} fillOpacity={0.05} fill="var(--chart-2)" />
             </AreaChart>
           </ResponsiveContainer>
+          )}
         </ChartFrame>
         <div className="grid gap-5 md:grid-cols-2">
           <SectionCard title="Probation endings — 45 days" description="Confirmation due">
@@ -382,20 +398,46 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
 
   if (role === "HOD") {
     const workloadTop = (charts.workloadTop ?? []) as { name: string; hours: number }[]
+    const attendanceMix = (charts.attendanceMix ?? []) as { name: string; value: number }[]
     const team = (data.team ?? []) as { code: string; name: string; designation: string; photoSeed: number }[]
     return (
       <React.Fragment>
-        <ChartFrame title="Teaching workload — top of department" description="Weekly contact hours (norm 16h)">
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={workloadTop} layout="vertical" margin={{ left: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
-              <YAxis type="category" dataKey="name" tick={{ fontSize: 10.5, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={110} />
-              <Tooltip {...tooltipStyle} />
-              <Bar dataKey="hours" name="Hours" radius={[0, 6, 6, 0]} fill="var(--chart-1)" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartFrame>
+        <div className="grid gap-5 md:grid-cols-2">
+          <ChartFrame title="Teaching workload — top of department" description="Weekly contact hours (norm 16h)">
+            {workloadTop.length === 0 ? (
+              <EmptyState
+                title="No teaching workload recorded"
+                hint="Non-teaching departments have no subject allocations — attendance mix is shown alongside."
+                className="h-[240px]"
+              />
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={workloadTop} layout="vertical" margin={{ left: 8 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 10.5, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={110} />
+                  <Tooltip {...tooltipStyle} />
+                  <Bar dataKey="hours" name="Hours" radius={[0, 6, 6, 0]} fill="var(--chart-1)" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </ChartFrame>
+          <ChartFrame title="Attendance mix — 30 days" description="Department-wide status counts">
+            {attendanceMix.length === 0 ? (
+              <EmptyState title="No attendance recorded yet" className="h-[240px]" />
+            ) : (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart data={attendanceMix}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                  <XAxis dataKey="name" tickFormatter={(v: string) => titleCase(v).slice(0, 10)} tick={{ fontSize: 9.5, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" height={46} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} width={30} />
+                  <Tooltip {...tooltipStyle} formatter={(v: number) => [String(v), "Days"]} labelFormatter={(l: string) => titleCase(l)} />
+                  <Bar dataKey="value" name="Records" radius={[6, 6, 0, 0]} fill="var(--chart-2)" />
+                </BarChart>
+              </ResponsiveContainer>
+            )}
+          </ChartFrame>
+        </div>
         <SectionCard title="My department" description={data.department ? `${(data.department as { name: string }).name} · ${(data.department as { campus: string }).campus}` : ""}>
           <ul className="grid gap-1.5 sm:grid-cols-2">
             {team.map((t) => (
@@ -421,7 +463,10 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
     return (
       <React.Fragment>
         <ChartFrame title="Payroll cost trend" description="Gross vs net (completed runs)">
-          <ResponsiveContainer width="100%" height={240}>
+          {costTrend.length === 0 ? (
+            <EmptyState title="No completed payroll runs yet" hint="Run and complete a payroll cycle to see the cost trend." className="h-[240px]" />
+          ) : (
+            <ResponsiveContainer width="100%" height={240}>
             <LineChart data={costTrend}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="month" tickFormatter={(v: string) => v.slice(2)} tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
@@ -432,6 +477,7 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
               <Legend wrapperStyle={{ fontSize: 11 }} />
             </LineChart>
           </ResponsiveContainer>
+          )}
         </ChartFrame>
         <SectionCard title="Recent runs" description="Latest payroll cycles">
           <ul className="space-y-2">
@@ -462,7 +508,10 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
     <React.Fragment>
       <div className="grid gap-5 md:grid-cols-2">
         <ChartFrame title="Leave balance" description="Available vs used (days)">
-          <ResponsiveContainer width="100%" height={220}>
+          {balances.length === 0 ? (
+            <EmptyState title="No leave balances yet" className="h-[220px]" />
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
             <BarChart data={balances}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis dataKey="name" tick={{ fontSize: 10.5, fill: "var(--muted-foreground)" }} tickLine={false} axisLine={false} />
@@ -473,6 +522,7 @@ function chartsForRole(role: string, data: DashboardData): React.ReactNode {
               <Bar dataKey="used" name="Used" stackId="b" fill="var(--chart-2)" radius={[5, 5, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </ChartFrame>
         <div className="space-y-5">
           {workload ? (

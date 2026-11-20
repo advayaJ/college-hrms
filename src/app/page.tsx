@@ -59,7 +59,10 @@ export default function Home() {
     content = <LoginScreen />
   } else {
     const [root, second, third] = route.segments
-    const key = `${root ?? "dashboard"}-${second ?? ""}-${third ?? ""}`
+    // The key includes the active role so every module REMOUNTS when the user
+    // switches roles — permission-derived local state (e.g. payroll's default
+    // tab) re-initialises instead of freezing at the old role's view.
+    const key = `${root ?? "dashboard"}-${second ?? ""}-${third ?? ""}-${session.activeRoleKey}-${session.activeDepartmentId ?? ""}`
     let view: React.ReactNode = null
     switch (root) {
       case "dashboard": view = <DashboardModule />; break

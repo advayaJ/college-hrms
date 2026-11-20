@@ -89,12 +89,29 @@ export function AppShell({ children, activeHash }: { children: React.ReactNode; 
 
   if (!session) return null
   const permissions = session.permissions
-  const activeRole = session.roles.find((r) => r.key === session.activeRoleKey)
+  const activeRole = session.roles.find(
+    (r) => r.key === session.activeRoleKey && r.departmentId === (session.activeDepartmentId ?? r.departmentId)
+  ) ?? session.roles.find((r) => r.key === session.activeRoleKey)
 
-  const onSwitchRole = async (key: string) => {
+  // Routes always available to any signed-in role.
+  const ALWAYS_ROUTES = new Set(["dashboard", "approvals", "notifications", "profile"])
+  const moduleAllowed = (root: string, perms: string[]): boolean => {
+    if (ALWAYS_ROUTES.has(root)) return true
+    const item = NAV_GROUPS.flatMap((g) => g.items).find((i) => i.hash === `#/${root}`)
+    return item ? item.show(perms) : true
+  }
+
+  const onSwitchRole = async (key: string, departmentId?: string | null) => {
     try {
-      await switchRole(key)
-      queryClient.clear()
+      const view = await switchRole(key, departmentId)
+      // Leave modules the new active role cannot access (e.g. Settings when
+      // stepping down from Super Admin to a staff role).
+      const root = (window.location.hash.replace(/^#\/?/, "").split(/[/?]/)[0] || "dashboard")
+      if (!moduleAllowed(root, view.permissions)) navigate("#/dashboard")
+      // resetQueries — unlike clear() — removes every cached query AND refetches
+      // the mounted ones, so the visible page immediately re-scopes to the new
+      // role without a manual reload.
+      queryClient.resetQueries()
       toast.success("Active role switched — dashboards and data rescoped")
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not switch role")
@@ -268,7 +285,14 @@ export function AppShell({ children, activeHash }: { children: React.ReactNode; 
             <CampusSelector />
 
             {/* Role switcher (multi-role users) */}
-            {session.roles.length > 1 ? <RoleSwitcher onSwitch={onSwitchRole} activeKey={session.activeRoleKey} roles={session.roles} /> : null}
+            {session.roles.length > 1 ? (
+              <RoleSwitcher
+                onSwitch={onSwitchRole}
+                activeKey={session.activeRoleKey}
+                activeDepartmentId={session.activeDepartmentId ?? null}
+                roles={session.roles}
+              />
+            ) : null}
 
             {/* Notifications */}
             <NotificationsPanel />
@@ -333,20 +357,37 @@ function CampusSelector() {
   )
 }
 
-function RoleSwitcher({ roles, activeKey, onSwitch }: { roles: { key: string; name: string; departmentName: string | null }[]; activeKey: string; onSwitch: (key: string) => void }) {
+function RoleSwitcher({
+  roles,
+  activeKey,
+  activeDepartmentId,
+  onSwitch,
+}: {
+  roles: { key: string; name: string; departmentId: string | null; departmentName: string | null }[]
+  activeKey: string
+  activeDepartmentId: string | null
+  onSwitch: (key: string, departmentId?: string | null) => void
+}) {
+  const isActive = (r: { key: string; departmentId: string | null }) =>
+    r.key === activeKey && (activeDepartmentId ? r.departmentId === activeDepartmentId : true)
+  const active = roles.find(isActive) ?? roles.find((r) => r.key === activeKey)
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="glass glass-hover flex items-center gap-2 rounded-xl px-3 py-1.5 text-[12px] font-medium">
           <span className="size-1.5 rounded-full bg-[color:var(--chart-1)]" />
-          <span className="max-w-32 truncate">{roles.find((r) => r.key === activeKey)?.name ?? activeKey}</span>
+          <span className="max-w-32 truncate">{active?.name ?? activeKey}</span>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="liquid w-60 rounded-xl border-border/60">
         <DropdownMenuLabel className="text-[10px] tracking-[0.18em] text-muted-foreground uppercase">Switch active role</DropdownMenuLabel>
         {roles.map((r) => (
-          <DropdownMenuItem key={r.key} onClick={() => onSwitch(r.key)} className="gap-2.5 rounded-lg text-[13px]">
-            <span className={cn("size-1.5 rounded-full", r.key === activeKey ? "bg-[color:var(--chart-1)]" : "bg-muted-foreground/40")} />
+          <DropdownMenuItem
+            key={`${r.key}:${r.departmentId ?? ""}`}
+            onClick={() => onSwitch(r.key, r.departmentId)}
+            className="gap-2.5 rounded-lg text-[13px]"
+          >
+            <span className={cn("size-1.5 rounded-full", isActive(r) ? "bg-[color:var(--chart-1)]" : "bg-muted-foreground/40")} />
             <span className="flex-1">{r.name}</span>
             {r.departmentName ? <span className="text-[10px] text-muted-foreground">{r.departmentName}</span> : null}
           </DropdownMenuItem>
