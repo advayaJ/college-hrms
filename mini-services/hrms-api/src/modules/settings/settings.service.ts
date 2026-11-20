@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import { Prisma } from '@prisma/client'
-import { IsBoolean, IsIn, IsInt, IsOptional, IsString, MinLength } from 'class-validator'
+import { Allow, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, MinLength } from 'class-validator'
 import { PrismaService } from '../../prisma/prisma.service'
 import { AuditService } from '../../core/audit/audit.service'
 import { PermissionRegistry } from '../../core/rbac/registry.service'
@@ -19,7 +19,10 @@ export class UpdateInstitutionDto {
 
 export class UpdateSettingDto {
   @IsString() key!: string
-  value!: unknown
+  /** @Allow keeps `value` through the ValidationPipe whitelist (accepts any
+   *  JSON value); without a decorator whitelist:true strips it and settings
+   *  saves silently no-op. */
+  @Allow() value!: unknown
   @IsOptional() @IsString() category?: string
 }
 
@@ -38,7 +41,11 @@ export class AssignRoleDto {
 
 export class UpdateRolePermissionsDto {
   @IsString() roleKey!: string
-  permissions!: string[]
+  /** @IsArray is required: with whitelist:true, an undecorated property is
+   *  stripped from the request body, making every role-permission save arrive
+   *  as `undefined` and wipe the role's permissions (this deleted the
+   *  Accountant role's grants in production). */
+  @IsArray() @IsString({ each: true }) permissions!: string[]
 }
 
 const DEFAULT_SETTINGS: Record<string, { value: unknown; category: string; label: string }> = {

@@ -100,6 +100,10 @@ __decorate([
     __metadata("design:type", String)
 ], UpdateSettingDto.prototype, "key", void 0);
 __decorate([
+    (0, class_validator_1.Allow)(),
+    __metadata("design:type", Object)
+], UpdateSettingDto.prototype, "value", void 0);
+__decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
@@ -158,6 +162,11 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], UpdateRolePermissionsDto.prototype, "roleKey", void 0);
+__decorate([
+    (0, class_validator_1.IsArray)(),
+    (0, class_validator_1.IsString)({ each: true }),
+    __metadata("design:type", Array)
+], UpdateRolePermissionsDto.prototype, "permissions", void 0);
 const DEFAULT_SETTINGS = {
     'attendance.work_hours': { value: { start: '09:30', end: '17:30', grace: 10 }, category: 'ATTENDANCE', label: 'Working hours & grace' },
     'attendance.late_threshold': { value: { minutes: 20, markHalfDayAfter: 120 }, category: 'ATTENDANCE', label: 'Late arrival rules' },
